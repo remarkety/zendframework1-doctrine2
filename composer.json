@@ -1,8 +1,8 @@
 {
-    "name": "guilhermeblanco/zendframework1-doctrine2",
+    "name": "remarkety/zendframework1-doctrine2",
     "require": {
-        "zendframework/zendframework1": "~1.9",
-        "doctrine/orm": "~2.3"
+        "shardj/zf1-future": "~1.20",
+        "doctrine/orm": "~2.10"
     },
     "autoload": {
         "psr-0": {"Bisna": "library/"}
