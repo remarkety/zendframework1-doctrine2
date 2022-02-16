@@ -5,6 +5,7 @@ namespace Bisna\Doctrine;
 use Bisna\Exception,
     Doctrine\DBAL\Types\Type,
     Doctrine\Common\Annotations\AnnotationRegistry;
+use Doctrine\Common\Cache\Psr6\DoctrineProvider;
 
 /**
  * Doctrine Container class.
@@ -13,6 +14,12 @@ use Bisna\Exception,
  */
 class Container
 {
+
+    /**
+     * @var array The initial configuration sent in the constructor. Used for resetting the container.
+     */
+    private $_containerConfig = [];
+
     /**
      * @var string Default DBAL Connection name.
      */
@@ -66,6 +73,20 @@ class Container
      */
     public function __construct(array $config = array())
     {
+        $this->_containerConfig = $config;
+        $this->_init($config);
+    }
+
+    public function reset() {
+        $this->configuration = array();
+        $this->connections = array();
+        $this->cacheInstances = array();
+        $this->documentManagers = array();
+        $this->entityManagers = array();
+        $this->_init($this->_containerConfig);
+    }
+
+    private function _init(array $config = array()) {
         // Registering Class Loaders
         if (isset($config['classLoader'])) {
             $this->registerClassLoaders($config['classLoader']);
@@ -247,8 +268,8 @@ class Container
     {
         $odmConfig = $config['odm'];
         $defaultDocumentManagerName = isset($odmConfig['defaultDocumentManager'])
-            ? $odmConfig['defaultDocumentManager']
-            : $this->defaultDocumentManager;
+                ? $odmConfig['defaultDocumentManager']
+                : $this->defaultDocumentManager;
 
         unset($odmConfig['defaultDocumentManager']);
 
@@ -258,13 +279,13 @@ class Container
             'documentNamespaces' => array(),
             'connection' => $this->defaultConnection,
             'proxy' => array(
-                'autoGenerateClasses' => true,
-                'namespace' => 'Proxy',
-                'dir' => APPLICATION_PATH . '/../library/Proxy'
+                    'autoGenerateClasses' => true,
+                    'namespace' => 'Proxy',
+                    'dir' => APPLICATION_PATH . '/../library/Proxy'
             ),
             'hydrator' => array(
-                'namespace' => 'Hydrators',
-                'dir' => APPLICATION_PATH . '/../cache'
+                    'namespace' => 'Hydrators',
+                    'dir' => APPLICATION_PATH . '/../cache'
             ),
             'queryCache' => $this->defaultCacheInstance,
             'resultCache' => $this->defaultCacheInstance,
@@ -284,13 +305,13 @@ class Container
             }
         } else {
             $documentManagers = array(
-                $this->defaultConnection => array_replace_recursive($defaultDocumentManager, $odmConfig)
+                    $this->defaultConnection => array_replace_recursive($defaultDocumentManager, $odmConfig)
             );
         }
 
         return array(
-            'defaultDocumentManager' => $defaultDocumentManagerName,
-            'documentManagers' => $documentManagers
+                'defaultDocumentManager' => $defaultDocumentManagerName,
+                'documentManagers' => $documentManagers
         );
     }
 
@@ -322,12 +343,6 @@ class Container
             'queryCache'              => $this->defaultCacheInstance,
             'resultCache'             => $this->defaultCacheInstance,
             'metadataCache'           => $this->defaultCacheInstance,
-            'secondLevelCache'        => array(
-                'enabled'             => false,
-                'cache'               => $this->defaultCacheInstance,
-                'cacheFactoryClass'   => 'Doctrine\ORM\Cache\DefaultCacheFactory',
-                'regionsConfigurationClass' => 'Doctrine\ORM\Cache\RegionsConfiguration'
-            ),
             'metadataDrivers'         => array(),
             'namingStrategyClass'     => 'Doctrine\ORM\Mapping\DefaultNamingStrategy',
             'DQLFunctions'            => array(
@@ -395,10 +410,10 @@ class Container
      */
     public function getConnectionNames()
     {
-        $configuredConnections = array_keys($this->configuration['dbal']);
-        $loadedConnections = array_keys($this->connections);
+       $configuredConnections = array_keys($this->configuration['dbal']);
+       $loadedConnections = array_keys($this->connections);
 
-        return array_merge($configuredConnections, $loadedConnections);
+       return array_merge($configuredConnections, $loadedConnections);
     }
 
     /**
@@ -438,10 +453,10 @@ class Container
      */
     public function getCacheInstanceNames()
     {
-        $configuredInstances = array_keys($this->configuration['cache']);
-        $loadedInstances = array_keys($this->cacheInstances);
+       $configuredInstances = array_keys($this->configuration['cache']);
+       $loadedInstances = array_keys($this->cacheInstances);
 
-        return array_merge($configuredInstances, $loadedInstances);
+       return array_merge($configuredInstances, $loadedInstances);
     }
 
     /**
@@ -449,9 +464,9 @@ class Container
      * it will attempt to get the default DocumentManager.
      * If ODM DocumentManager name could not be found, NameNotFoundException is thrown.
      *
-     * @throws \Core\Application\Exception\NameNotFoundException
+     * @throws Bisna\Application\Exception\NameNotFoundException
      * @param string $dmName Optional ODM DocumentManager name
-     * @return \Doctrine\ODM\MongoDB\DocumentManager
+     * @return Doctrine\ODM\MongoDB\DocumentManager
      */
     public function getDocumentManager($dmName = null)
     {
@@ -509,10 +524,10 @@ class Container
      */
     public function getEntityManagerNames()
     {
-        $configuredEMs = array_keys($this->configuration['orm']);
-        $loadedEMs = array_keys($this->entityManagers);
+       $configuredEMs = array_keys($this->configuration['orm']);
+       $loadedEMs = array_keys($this->entityManagers);
 
-        return array_merge($configuredEMs, $loadedEMs);
+       return array_merge($configuredEMs, $loadedEMs);
     }
 
     /**
@@ -605,19 +620,12 @@ class Container
      *
      * @return \Doctrine\Common\Cache\Cache
      */
-    private function startCacheInstance(array $config = array())
+    private function startCacheInstance(array $config = array()): \Psr\Cache\CacheItemPoolInterface
     {
         $adapterClass = $config['adapterClass'];
-        
-        // FilesystemCache (extending abstract FileCache class) expects the directory as a parameter in the constructor
-        if( $adapterClass == 'Doctrine\Common\Cache\FilesystemCache') {
-            $directory = isset($config['options']['directory']) ? $config['options']['directory'] : '/tmp/doctrine';
-            $extension = isset($config['options']['extension']) ? $config['options']['extension'] : null;
-            $adapter = new $adapterClass($directory, $extension);
-        } else {
-            $adapter = new $adapterClass();
-        }
-        
+        $adapterConfig = $config['options'];
+        $adapter = new $adapterClass($adapterConfig);
+
         // Define namespace for cache
         if (isset($config['namespace']) && ! empty($config['namespace'])) {
             $adapter->setNamespace($config['namespace']);
@@ -625,135 +633,17 @@ class Container
 
         if (method_exists($adapter, 'initialize')) {
             $adapter->initialize($config);
-        } else if ($adapter instanceof \Doctrine\Common\Cache\CouchbaseCache) {
-
-            // Couchbase configuration
-            $hosts      = isset($config['options']['hosts'])      ? $config['options']['hosts']      : array('localhost');
-            $user       = isset($config['options']['user'])       ? $config['options']['user']       : '';
-            $password   = isset($config['options']['password'])   ? $config['options']['password']   : '';
-            $bucket     = isset($config['options']['bucket'])     ? $config['options']['bucket']     : 'default';
-            $persistent = isset($config['options']['persistent']) ? $config['options']['persistent'] : true;
-
-            // Prevent stupid PHP error of missing extension (if other driver is being used)
-            $couchbaseClassName = 'Couchbase';
-            $couchbase = new $couchbaseClassName($hosts, $user, $password, $bucket, $persistent);
-
-            $adapter->setCouchbase($couchbase);
-        } else if ($adapter instanceof \Doctrine\Common\Cache\MemcacheCache) {
-            // Prevent stupid PHP error of missing extension (if other driver is being used)
-            $memcacheClassName = 'Memcache';
-            $memcache = new $memcacheClassName();
-
-            // Default server configuration
-            $defaultServer = array(
-                'host'          => 'localhost',
-                'port'          => 11211,
-                'persistent'    => true,
-                'weight'        => 1,
-                'timeout'       => 1,
-                'retryInterval' => 15,
-                'status'        => true
-            );
-
-            if (isset($config['options']['servers'])) {
-                foreach ($config['options']['servers'] as $server) {
-                    $server = array_replace_recursive($defaultServer, $server);
-
-                    $memcache->addServer(
-                        $server['host'],
-                        $server['port'],
-                        $server['persistent'],
-                        $server['weight'],
-                        $server['timeout'],
-                        $server['retryInterval'],
-                        $server['status']
-                    );
-                }
-            }
-
-            $adapter->setMemcache($memcache);
-        } else if ($adapter instanceof \Doctrine\Common\Cache\MemcachedCache) {
-            // Prevent stupid PHP error of missing extension (if other driver is being used)
-            $memcacheClassName = 'Memcached';
-            $memcache = new $memcacheClassName();
-
-            // Default server configuration
-            $defaultServer = array(
-                'host'          => 'localhost',
-                'port'          => 11211,
-                'weight'        => 1,
-            );
-
-            if (isset($config['options']['servers'])) {
-                foreach ($config['options']['servers'] as $server) {
-                    $server = array_replace_recursive($defaultServer, $server);
-
-                    $memcache->addServer(
-                        $server['host'],
-                        $server['port'],
-                        $server['weight']
-                    );
-                }
-            }
-
-            $adapter->setMemcached($memcache);
-        } else if ($adapter instanceof \Doctrine\Common\Cache\RedisCache) {
-            // Prevent stupid PHP error of missing extension (if other driver is being used)
-            $redisClassName = 'Redis';
-            $redis = new $redisClassName();
-
-            // Default server configuration
-            $defaultServer = array(
-                'host'         => 'localhost',
-                'port'         => 6379,
-                'timeout'      => 0,
-                'persistent'   => false,
-                'persistentId' => null,
-                'prefix'       => null,
-                'password'     => null,
-                'database'     => 0,
-            );
-
-            $server = isset($config['options'])
-                ? array_replace_recursive($defaultServer, $config['options'])
-                : $defaultServer;
-
-            if (isset($server['persistent']) && $server['persistent']) {
-                $redis->pconnect(
-                    $server['host'],
-                    $server['port'],
-                    $server['timeout'],
-                    isset($server['persistentId']) ? $server['persistentId'] : null
-                );
-            } else {
-                $redis->connect(
-                    $server['host'],
-                    $server['port'],
-                    $server['timeout']
-                );
-            }
-
-            if (isset($server['password'])) {
-                $redis->auth($server['password']);
-            }
-
-            if (isset($server['prefix'])) {
-                $redis->setOption(\Redis::OPT_PREFIX, $server['prefix']);
-            }
-
-            $redis->select($server['database']);
-
-            $adapter->setRedis($redis);
         }
 
         return $adapter;
+
     }
 
     /**
      * Initialize the ODM Document Manager
      *
      * @param array $config
-     * @return \Doctrine\ODM\MongoDB\DocumentManager
+     * @return Doctrine\ODM\MongoDB\DocumentManager
      */
     private function startODMDocumentManager(array $config = array())
     {
@@ -787,7 +677,7 @@ class Container
      * Initialize ODM Configuration.
      *
      * @param array $config ODM DocumentManager configuration.
-     * @return \Doctrine\ODM\MongoDB\Configuration
+     * @return Doctrine\ODM\MongoDB\Configuration
      */
     private function startODMConfiguration(array $config = array())
     {
@@ -813,7 +703,7 @@ class Container
         $configuration->setHydratorNamespace($config['hydrator']['namespace']);
 
         // Cache configuration
-        $configuration->setMetadataCacheImpl($this->getCacheInstance($config['metadataCache']));
+        $configuration->setMetadataCache($this->getCacheInstance($config['metadataCache']));
 
         // Metadata configuration
         $configuration->setMetadataDriverImpl($this->startODMMetadata($config['metadataDrivers']));
@@ -857,37 +747,12 @@ class Container
         $configuration->setProxyDir($config['proxy']['dir']);
 
         // Cache configuration
-        $configuration->setMetadataCacheImpl($this->getCacheInstance($config['metadataCache']));
-        $configuration->setResultCacheImpl($this->getCacheInstance($config['resultCache']));
-        $configuration->setQueryCacheImpl($this->getCacheInstance($config['queryCache']));
-
-        // SecondLevelCache configuration
-        if(isset($config['secondLevelCache']) && method_exists($configuration, 'setSecondLevelCacheEnabled')) {
-            $configuration->setSecondLevelCacheEnabled(
-                $config['secondLevelCache']['enabled'] === true ||
-                !in_array($config['secondLevelCache']['enabled'], array("0", "false", false))
-            );
-            if ($configuration->isSecondLevelCacheEnabled()) {
-                $regionsConfigurationClass = $config['secondLevelCache']['regionsConfigurationClass'];
-                $factoryClass = $config['secondLevelCache']['cacheFactoryClass'];
-                $factory = new $factoryClass(new $regionsConfigurationClass(), $this->getCacheInstance($config['secondLevelCache']['cache']));
-                $configuration->getSecondLevelCacheConfiguration()->setCacheFactory($factory);
-                if (isset($config['secondLevelCache']['loggerClass'])) {
-                    $loggerClass = $config['secondLevelCache']['loggerClass'];
-                    $configuration->getSecondLevelCacheConfiguration()->setCacheLogger(new $loggerClass());
-                }
-            }
-        }
+        $configuration->setMetadataCache($this->getCacheInstance($config['metadataCache']));
+        $configuration->setResultCacheImpl(DoctrineProvider::wrap($this->getCacheInstance($config['resultCache'])));
+        $configuration->setQueryCacheImpl(DoctrineProvider::wrap($this->getCacheInstance($config['queryCache'])));
 
         // Metadata configuration
         $configuration->setMetadataDriverImpl($this->startORMMetadata($config['metadataDrivers']));
-
-        //Filters http://doctrine-orm.readthedocs.org/en/latest/reference/filters.html#configuration
-        if(isset($config['filters'])){
-            foreach ($config['filters'] as $name => $className) {
-                $configuration->addFilter($name, $className);
-            }
-        }
 
         // DQL Functions configuration
         $dqlFunctions = $config['DQLFunctions'];
@@ -919,11 +784,11 @@ class Container
      * Initialize ODM Metadata drivers.
      *
      * @param array $config ODM Mapping drivers.
-     * @return \Doctrine\ODM\MongoDB\Mapping\Driver\DriverChain
+     * @return Doctrine\ODM\MongoDB\Mapping\Driver\DriverChain
      */
     private function startODMMetadata(array $config = array())
     {
-        $metadataDriver = new \Doctrine\Common\Persistence\Mapping\Driver\MappingDriverChain();
+        $metadataDriver = new \Doctrine\Persistence\Mapping\Driver\MappingDriverChain();
 
         // Default metadata driver configuration
         $defaultMetadataDriver = array(
@@ -946,7 +811,7 @@ class Container
             if (method_exists($driver['adapterClass'], 'registerAnnotationClasses')) {
                 $driver['adapterClass']::registerAnnotationClasses();
             }
-
+            
             $reflClass = new \ReflectionClass($driver['adapterClass']);
             $nestedDriver = null;
 
@@ -975,7 +840,7 @@ class Container
 
                 $nestedDriver = $reflClass->newInstance($indexedReader, $driver['mappingDirs']);
             } else {
-                $nestedDriver = $reflClass->newInstance($driver['mappingDirs']);
+                $nestedDriver = $reflClass->newInstance($indexedReader, $driver['mappingDirs']);
             }
 
             $metadataDriver->addDriver($nestedDriver, $driver['mappingNamespace']);
@@ -998,7 +863,7 @@ class Container
      */
     private function startORMMetadata(array $config = array())
     {
-        $metadataDriver = new \Doctrine\Common\Persistence\Mapping\Driver\MappingDriverChain();
+        $metadataDriver = new \Doctrine\Persistence\Mapping\Driver\MappingDriverChain();
 
         // Default metadata driver configuration
         $defaultMetadataDriver = array(
@@ -1046,9 +911,11 @@ class Container
                     }
                 }
 
+                $annotationReaderCache = $this->getCacheInstance($driver['annotationReaderCache']);
+                $wrappedAnnotationReaderCache = DoctrineProvider::wrap($annotationReaderCache);
                 $indexedReader = new \Doctrine\Common\Annotations\CachedReader(
                     new \Doctrine\Common\Annotations\IndexedReader($annotationReader),
-                    $this->getCacheInstance($driver['annotationReaderCache'])
+                    $wrappedAnnotationReaderCache
                 );
 
                 $nestedDriver = $reflClass->newInstance($indexedReader, $driver['mappingDirs']);
@@ -1068,7 +935,7 @@ class Container
     }
 
     /**
-     * Initialize ORM Metadata Annotation Registry driver
+     * Initialize ORM Metatada Annotation Registry driver
      *
      * @param array $config  ORM Annotation Registry configuration.
      */
@@ -1085,8 +952,8 @@ class Container
         if (isset($config['annotationNamespaces']) && is_array($config['annotationNamespaces'])) {
             foreach($config['annotationNamespaces'] as $annotationNamespace) {
                 AnnotationRegistry::registerAutoloadNamespace(
-                    $annotationNamespace['namespace']
-                    , isset($annotationNamespace['includePath']) ? $annotationNamespace['includePath'] : null
+                        $annotationNamespace['namespace']
+                        , isset($annotationNamespace['includePath']) ? $annotationNamespace['includePath'] : null
                 );
             }
 
