@@ -13,6 +13,7 @@ class FilesystemCache extends FilesystemCachePool
     
     public function __construct(array $options)
     {
+        $this->checkCacheDirExists();
         $filesystemRoot = $options['directory'];
         $filesystemAdapter = new Local($filesystemRoot);
         $filesystem = new Filesystem($filesystemAdapter);
@@ -25,5 +26,12 @@ class FilesystemCache extends FilesystemCachePool
 
     public function getNamespace() {
         return $this->_namespace;
+    }
+
+    private function checkCacheDirExists() {
+        $temp = sys_get_temp_dir() . '/cache';
+        if (!realpath($temp) || !is_dir($temp)) {
+            mkdir($temp);
+        }
     }
 }
