@@ -1,7 +1,7 @@
 {
     "name": "remarkety/zendframework1-doctrine2",
     "require": {
-        "shardj/zf1-future": "^1.23",
+        "remarkety/zf1-future": "^1.23",
         "doctrine/orm": "~2.10"
     },
     "autoload": {
