@@ -1,7 +1,6 @@
 {
     "name": "remarkety/zendframework1-doctrine2",
     "require": {
-        "remarkety/zf1-future": "master-dev",
         "doctrine/orm": "~2.10"
     },
     "autoload": {
