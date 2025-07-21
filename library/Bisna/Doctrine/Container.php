@@ -2,9 +2,8 @@
 
 namespace Bisna\Doctrine;
 
-use Bisna\Exception,
-    Doctrine\DBAL\Types\Type,
-    Doctrine\Common\Annotations\AnnotationRegistry;
+use Bisna\Exception;
+use Doctrine\DBAL\Types\Type;
 use Doctrine\Common\Cache\Psr6\DoctrineProvider;
 
 /**
@@ -801,9 +800,9 @@ class Container
         );
 
         // Setup ODM AnnotationRegistry
-        if (isset($config['annotationRegistry'])) {
-            $this->startAnnotationRegistry($config['annotationRegistry']);
-        }
+        // if (isset($config['annotationRegistry'])) {
+        //     $this->startAnnotationRegistry($config['annotationRegistry']);
+        // }
 
         foreach ($config['drivers'] as $driver) {
             $driver = array_replace_recursive($defaultMetadataDriver, $driver);
@@ -833,10 +832,8 @@ class Container
                     }
                 }
 
-                $indexedReader = new \Doctrine\Common\Annotations\CachedReader(
-                    new \Doctrine\Common\Annotations\IndexedReader($annotationReader),
-                    $this->getCacheInstance($driver['annotationReaderCache'])
-                );
+                $indexedReader = new \Doctrine\Common\Annotations\AnnotationReader();
+
 
                 $nestedDriver = $reflClass->newInstance($indexedReader, $driver['mappingDirs']);
             } else {
@@ -877,9 +874,9 @@ class Container
 
 
         // Setup AnnotationRegistry
-        if (isset($config['annotationRegistry'])) {
-            $this->startAnnotationRegistry($config['annotationRegistry']);
-        }
+        // if (isset($config['annotationRegistry'])) {
+        //     $this->startAnnotationRegistry($config['annotationRegistry']);
+        // }
 
         foreach ($config['drivers'] as $driver) {
             $driver = array_replace_recursive($defaultMetadataDriver, $driver);
@@ -911,12 +908,7 @@ class Container
                     }
                 }
 
-                $annotationReaderCache = $this->getCacheInstance($driver['annotationReaderCache']);
-                $wrappedAnnotationReaderCache = DoctrineProvider::wrap($annotationReaderCache);
-                $indexedReader = new \Doctrine\Common\Annotations\CachedReader(
-                    new \Doctrine\Common\Annotations\IndexedReader($annotationReader),
-                    $wrappedAnnotationReaderCache
-                );
+                $indexedReader = new \Doctrine\Common\Annotations\AnnotationReader();
 
                 $nestedDriver = $reflClass->newInstance($indexedReader, $driver['mappingDirs']);
             } else {
@@ -941,22 +933,6 @@ class Container
      */
     private function startAnnotationRegistry($config)
     {
-        // Load annotations from Files
-        if (isset($config['annotationFiles']) && is_array($config['annotationFiles'])) {
-            foreach($config['annotationFiles'] as $file) {
-                AnnotationRegistry::registerFile($file);
-            }
-        }
-
-        // Load annotation namespaces
-        if (isset($config['annotationNamespaces']) && is_array($config['annotationNamespaces'])) {
-            foreach($config['annotationNamespaces'] as $annotationNamespace) {
-                AnnotationRegistry::registerAutoloadNamespace(
-                        $annotationNamespace['namespace']
-                        , isset($annotationNamespace['includePath']) ? $annotationNamespace['includePath'] : null
-                );
-            }
-
-        }
+        // Doctrine 2.20+: AnnotationRegistry removed — no need to register anything.
     }
 }
