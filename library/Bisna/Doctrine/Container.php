@@ -365,24 +365,26 @@ class Container
      *
      * @throws \Bisna\Exception\NameNotFoundException
      *
+     * @param string $configName Optional DBAL Connection config name
      * @param string $connName Optional DBAL Connection name
      *
      * @return \Doctrine\DBAL\Connection DBAL Connection
      */
-    public function getConnection($connName = null)
+    public function getConnection($configName = null, $connName = null)
     {
-        $connName = $connName ?: $this->defaultConnection;
+        $configName = $configName ?: $this->defaultConnection;
+        $connName = $connName ?: $configName;
 
         // Check if DBAL Connection has not yet been initialized
         if ( ! isset($this->connections[$connName])) {
             // Check if DBAL Connection is configured
-            if ( ! isset($this->configuration['dbal'][$connName])) {
-                throw new Exception\NameNotFoundException("Unable to find Doctrine DBAL Connection '{$connName}'.");
+            if ( ! isset($this->configuration['dbal'][$configName])) {
+                throw new Exception\NameNotFoundException("Unable to find Doctrine DBAL Connection '{$configName}'.");
             }
 
-            $this->connections[$connName] = $this->startDBALConnection($this->configuration['dbal'][$connName]);
+            $this->connections[$connName] = $this->startDBALConnection($this->configuration['dbal'][$configName]);
 
-            unset($this->configuration['dbal'][$connName]);
+            // unset($this->configuration['dbal'][$connName]); // Keep config for later use in case of multiple connections with same config
         }
 
         return $this->connections[$connName];
@@ -480,28 +482,33 @@ class Container
      * @throws \Bisna\Exception\NameNotFoundException
      *
      * @param string $emName Optional ORM EntityManager name
+     * @param string $configName Optional ORM EntityManager configuration name
      *
      * @return \Doctrine\ORM\EntityManager ORM EntityManager
      */
-    public function getEntityManager($emName = null)
+    public function getEntityManager($emName = null, $configName = null)
     {
         $emName = $emName ?: $this->defaultEntityManager;
+        $configName = $configName ?: $emName;
 
         // Check if ORM Entity Manager has not yet been initialized
         if ( ! isset($this->entityManagers[$emName])) {
             // Check if ORM EntityManager is configured
-            if ( ! isset($this->configuration['orm'][$emName])) {
-                throw new Exception\NameNotFoundException("Unable to find Doctrine ORM EntityManager '{$emName}'.");
+            if ( ! isset($this->configuration['orm'][$configName])) {
+                throw new Exception\NameNotFoundException("Unable to find Doctrine ORM EntityManager '{$configName}'.");
             }
 
-            $this->entityManagers[$emName] = $this->startORMEntityManager($this->configuration['orm'][$emName]);
+            // $this->entityManagers[$emName] = $this->startORMEntityManager($this->configuration['orm'][$configName]);
+            $this->entityManagers[$emName] = \Doctrine\ORM\EntityManager::create(
+                $this->getConnection($this->configuration['orm'][$configName]['connection'], $emName),
+                $this->startORMConfiguration($this->configuration['orm'][$configName])
+            );
 
-            unset($this->configuration['orm'][$emName]);
+            // unset($this->configuration['orm'][$emName]); // Keep config for later use in case of multiple EM with same config
         }
 
         return $this->entityManagers[$emName];
     }
-
     /**
      * Retrieves a list of names for all Entity Managers configured and/or loaded
      *
